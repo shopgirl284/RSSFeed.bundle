@@ -4,6 +4,7 @@ PREFIX   = '/video/rssfeeds'
 ART      = 'art-default.jpg'
 ICON     = 'icon-default.png'
 SHOW_DATA = 'rssdata.json'
+NAMESPACES = {'feedburner': 'http://rssnamespace.org/feedburner/ext/1.0'}
 
 http = 'http:'
 
@@ -21,7 +22,7 @@ def Start():
   VideoClipObject.thumb = R(ICON)
   VideoClipObject.art = R(ART)
   
-  HTTP.CacheTime = CACHE_1HOUR 
+  #HTTP.CacheTime = CACHE_1HOUR 
 
   #This Checks to see if there is a list of feeds
   if Dict['MyShows'] == None:
@@ -130,13 +131,19 @@ def ShowRSS(title, url):
 
   oc = ObjectContainer(title2=title)
   feed_title = title
-  xml = RSS.FeedFromURL(url)
-  for item in xml.entries:
-    epUrl = item.link
-    title = item.title
-    date = Datetime.ParseDate(item.date)
+  xml = XML.ElementFromURL(url)
+  for item in xml.xpath('//item'):
+    epUrl = item.xpath('./link//text()')[0]
+    title = item.xpath('./title//text()')[0]
+    date = Datetime.ParseDate(item.xpath('./pubDate//text()')[0])
     # The description actually contains pubdate, link with thumb and description so we need to break it up
-    epDesc = item.description
+    epDesc = item.xpath('./description//text()')[0]
+    try:
+      new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
+      Log('the value of new_url is %s' %new_url)
+      epUrl = new_url
+    except:
+      pass
     html = HTML.ElementFromString(epDesc)
     els = list(html)
     try:
@@ -168,7 +175,7 @@ def ShowRSS(title, url):
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title, show_type='video'), title="Delete %s" %feed_title, summary="Click here to delete this feed"))
 
-  oc.add(InputDirectoryObject(key=Callback(AddImage, url=url, title=feed_title, show_type='video', url=url), title="Add Image For %s" %feed_title, summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
+  oc.add(InputDirectoryObject(key=Callback(AddImage, title=feed_title, show_type='video', url=url), title="Add Image For %s" %feed_title, summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
 
   if len(oc) < 1:
     Log ('still no value for objects')
@@ -185,13 +192,19 @@ def AudioRSS(title, url):
 
   oc = ObjectContainer(title2=title)
   feed_title = title
-  xml = RSS.FeedFromURL(url)
-  for item in xml.entries:
-    epUrl = item.link
-    title = item.title
-    date = Datetime.ParseDate(item.date)
+  xml = XML.ElementFromURL(url)
+  for item in xml.xpath('//item'):
+    epUrl = item.xpath('./link//text()')[0]
+    title = item.xpath('./title//text()')[0]
+    date = Datetime.ParseDate(item.xpath('./pubDate//text()')[0])
     # The description actually contains pubdate, link with thumb and description so we need to break it up
-    epDesc = item.description
+    epDesc = item.xpath('./description//text()')[0]
+    try:
+      new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
+      Log('the value of new_url is %s' %new_url)
+      epUrl = new_url
+    except:
+      pass
     html = HTML.ElementFromString(epDesc)
     els = list(html)
     try:
@@ -225,7 +238,7 @@ def AudioRSS(title, url):
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title, show_type='audio'), title="Delete %s" %feed_title, summary="Click here to delete this feed"))
 
-  oc.add(InputDirectoryObject(key=Callback(AddImage, url=url, title=feed_title, show_type='video', url=url), title="Add Image For %s" %feed_title, summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
+  oc.add(InputDirectoryObject(key=Callback(AddImage, title=feed_title, show_type='video', url=url), title="Add Image For %s" %feed_title, summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
 
   if len(oc) < 1:
     Log ('still no value for objects')
