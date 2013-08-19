@@ -47,7 +47,7 @@ def MainMenu():
   
   oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Video Feeds", show_type='video'), title="RSS Video Feeds"))
   # WOULD LIKE TO ADD AUDIO BACK LATER BUT WITH LIMITED CHOICES, SEEMS IT WOULD JUST BE CONFUSING TO USERS FOR NOW
-  #oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Audio Feeds", show_type='audio'), title="RSS Audio Feeds"))
+  oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Audio Feeds", show_type='audio'), title="RSS Audio Feeds"))
   oc.add(DirectoryObject(key=Callback(SectionTools, title="Channel Tools"), title="Channel Tools", summary="Click here to for reset options, extras and special instructions"))
 
   return oc
@@ -222,8 +222,8 @@ def AudioRSS(title, url):
     #test = 'true'
     test = URLTest(epUrl)
     if test == 'true':
-      oc.add(TrackObject(
-        url = epUrl, 
+      oc.add(AlbumObject(
+        url = epUrl + '#Track', 
         title = title, 
         summary = summary, 
         thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
