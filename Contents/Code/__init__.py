@@ -5,6 +5,7 @@ ART      = 'art-default.jpg'
 ICON     = 'icon-default.png'
 SHOW_DATA = 'rssdata.json'
 NAMESPACES = {'feedburner': 'http://rssnamespace.org/feedburner/ext/1.0'}
+NAMESPACES2 = {'media': 'http://search.yahoo.com/mrss/'}
 
 http = 'http:'
 
@@ -137,16 +138,18 @@ def ShowRSS(title, url):
     epDesc = item.xpath('./description//text()')[0]
     try:
       new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
-      Log('the value of new_url is %s' %new_url)
       epUrl = new_url
     except:
       pass
     html = HTML.ElementFromString(epDesc)
     els = list(html)
     try:
-      thumb = html.cssselect('img')[0].get('src')
+      thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
     except:
-      thumb = R(ICON)
+      try:
+        thumb = html.cssselect('img')[0].get('src')
+      except:
+        thumb = R(ICON)
 
     summary = []
 
@@ -173,7 +176,7 @@ def ShowRSS(title, url):
 
     else:
       if media_url:
-        oc.add(CreateObject(title=title, summary = summary, originally_available_at = date, url=media_url))
+        oc.add(CreateObject(title=title, summary = summary, originally_available_at = date, thumb=thumb, url=media_url))
       else:
         Log('The url test failed and returned a value of %s' %test)
         oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Media Files for Video", summary='There is not a Plex URL service or media files for %s.' %title))
@@ -192,7 +195,7 @@ def ShowRSS(title, url):
 # This function creates an object container for RSS feeds that have a media file in the feed
 # Not sure what other types there may be to add. Should we put flac or ogg here? Are there containers for these and what are they?
 @route(PREFIX + '/createobject')
-def CreateObject(url, title, summary, originally_available_at, include_container=False):
+def CreateObject(url, title, summary, originally_available_at, thumb, include_container=False):
 
   if url.endswith('.mp3'):
     container = 'mp3'
@@ -216,9 +219,10 @@ def CreateObject(url, title, summary, originally_available_at, include_container
     return new_object
 
   new_object = object_type(
-    key = Callback(CreateObject, url=url, title=title, summary=summary, originally_available_at=originally_available_at, include_container=True),
+    key = Callback(CreateObject, url=url, title=title, summary=summary, originally_available_at=originally_available_at, thumb=thumb, include_container=True),
     rating_key = url,
     title = title,
+    thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)),
     summary = summary,
     originally_available_at = originally_available_at,
     items = [
