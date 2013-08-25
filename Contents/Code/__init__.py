@@ -102,10 +102,7 @@ def ProduceRss(title, show_type):
             thumb = rss_page.xpath("//channel/image/url//text()")[0]
           except:
             thumb = R(ICON)
-        if show_type == 'video':
-          oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url), title=title, summary=description, thumb=thumb))
-        else:
-          oc.add(DirectoryObject(key=Callback(AudioRSS, title=title, url=url), title=title, summary=description, thumb=thumb))
+        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url), title=title, summary=description, thumb=thumb))
       except:
         oc.add(DirectoryObject(key=Callback(URLError, url=url), title="Invalid or Incompatible URL", summary="The URL entered in the database was either incorrect or incompatible with this channel."))
     else:
@@ -149,7 +146,7 @@ def ShowRSS(title, url):
     try:
       thumb = html.cssselect('img')[0].get('src')
     except:
-      thumb = R(RSS_ICON)
+      thumb = R(ICON)
 
     summary = []
 
@@ -179,79 +176,9 @@ def ShowRSS(title, url):
         oc.add(CreateObject(title=title, summary = summary, originally_available_at = date, url=media_url))
       else:
         Log('The url test failed and returned a value of %s' %test)
-        oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service for Video", summary='There is not a Plex URL service for %s.' %title))
+        oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Media Files for Video", summary='There is not a Plex URL service or media files for %s.' %title))
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title, show_type='video'), title="Delete %s" %feed_title, summary="Click here to delete this feed"))
-
-  oc.add(InputDirectoryObject(key=Callback(AddImage, title=feed_title, show_type='video', url=url), title="Add Image For %s" %feed_title, summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
-
-  if len(oc) < 1:
-    Log ('still no value for objects')
-    return ObjectContainer(header="Empty", message="There are no videos to display for this RSS feed right now.")      
-  else:
-    return oc
-
-########################################################################################################################
-# This is for audio RSS Feed.  Seems to work with LIMITED TESTING OF RSS feeds
-@route(PREFIX + '/audiorss')
-def AudioRSS(title, url):
-
-# The ProduceRSS try above tells us if the RSS feed is the correct format. so we should not need to put this function's data pull in a try/except
-  oc = ObjectContainer(title2=title)
-  feed_title = title
-  xml = XML.ElementFromURL(url)
-  for item in xml.xpath('//item'):
-    try:
-      epUrl = item.xpath('./link//text()')[0]
-    except:
-      continue
-    title = item.xpath('./title//text()')[0]
-    date = Datetime.ParseDate(item.xpath('./pubDate//text()')[0])
-    # The description actually contains pubdate, link with thumb and description so we need to break it up
-    epDesc = item.xpath('./description//text()')[0]
-    try:
-      new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
-      Log('the value of new_url is %s' %new_url)
-      epUrl = new_url
-    except:
-      pass
-    html = HTML.ElementFromString(epDesc)
-    els = list(html)
-    try:
-      thumb = html.cssselect('img')[0].get('src')
-    except:
-      thumb = R(ICON)
-
-    summary = []
-
-    for el in els:
-      if el.tail: summary.append(el.tail)
-	
-    summary = '. '.join(summary)
-    try:
-      media_url = item.xpath('./enclosure//@url')[0]
-    except:
-      media_url = ''
-
-    test = URLTest(epUrl)
-    if test == 'true' and 'archive.org' not in url:
-      oc.add(AlbumObject(
-        url = epUrl + '#Track', 
-        title = title, 
-        summary = summary, 
-        thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
-        originally_available_at = date
-      ))
-      oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
-
-    else:
-      if media_url:
-        oc.add(CreateObject(title=title, summary = summary, originally_available_at = date, url=media_url))
-      else:
-        Log('The url test failed and returned a value of %s' %test)
-        oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service for Video", summary='There is not a Plex URL service for %s.' %title))
-
-  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title, show_type='audio'), title="Delete %s" %feed_title, summary="Click here to delete this feed"))
 
   oc.add(InputDirectoryObject(key=Callback(AddImage, title=feed_title, show_type='video', url=url), title="Add Image For %s" %feed_title, summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
 
