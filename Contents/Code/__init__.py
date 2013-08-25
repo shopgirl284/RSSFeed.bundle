@@ -46,8 +46,7 @@ def MainMenu():
   Dict["shows"] = JSON.ObjectFromString(json_data)
   
   oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Video Feeds", show_type='video'), title="RSS Video Feeds"))
-  # WOULD LIKE TO ADD AUDIO BACK LATER BUT WITH LIMITED CHOICES, SEEMS IT WOULD JUST BE CONFUSING TO USERS FOR NOW
-  #oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Audio Feeds", show_type='audio'), title="RSS Audio Feeds"))
+  oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Audio Feeds", show_type='audio'), title="RSS Audio Feeds"))
   oc.add(DirectoryObject(key=Callback(SectionTools, title="Channel Tools"), title="Channel Tools", summary="Click here to for reset options, extras and special instructions"))
 
   return oc
@@ -86,7 +85,6 @@ def ProduceRss(title, show_type):
   i=1
   shows = Dict["MyShows"]
   for show in shows:
-    #if show[i]['url']:
     if show[i]['type'] == show_type:
       url = show[i]["url"]
       thumb = show[i]["thumb"]
@@ -128,7 +126,6 @@ def ProduceRss(title, show_type):
 def ShowRSS(title, url):
 
 # The ProduceRSS try above tells us if the RSS feed is the correct format. so we do not need to put this function's data pull in a try/except
-
   oc = ObjectContainer(title2=title)
   feed_title = title
   xml = XML.ElementFromURL(url)
@@ -166,7 +163,8 @@ def ShowRSS(title, url):
       media_url = ''
 
     test = URLTest(epUrl)
-    if test == 'true':
+    # Internet Archives RSS Feed sometimes have a mix of video and audio so best to use alternate function for it
+    if test == 'true' and 'archive.org' not in url:
       oc.add(VideoClipObject(
         url = epUrl, 
         title = title, 
@@ -177,8 +175,8 @@ def ShowRSS(title, url):
       oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
     else:
-      if media_url.endswith('.mp4'):
-        oc.add(CreateVideoClipObject(title=title, summary = summary, originally_available_at = date, url=media_url))
+      if media_url:
+        oc.add(CreateObject(title=title, summary = summary, originally_available_at = date, url=media_url))
       else:
         Log('The url test failed and returned a value of %s' %test)
         oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service for Video", summary='There is not a Plex URL service for %s.' %title))
@@ -193,47 +191,20 @@ def ShowRSS(title, url):
   else:
     return oc
 
-####################################################################################################
-@route(PREFIX + '/createvideoobject')
-def CreateVideoClipObject(url, title, summary, originally_available_at, include_container=False):
-
-  container = Container.MP4
-  audio_codec = AudioCodec.AAC
-
-  video_clip_object = VideoClipObject(
-    key = Callback(CreateVideoClipObject, url=url, title=title, summary=summary, originally_available_at=originally_available_at, include_container=True),
-    rating_key = url,
-    title = title,
-    summary = summary,
-    originally_available_at = originally_available_at,
-    items = [
-      MediaObject(
-        parts = [
-          PartObject(key=url)
-            ],
-            container = container,
-            audio_codec = audio_codec,
-            audio_channels = 2
-      )
-    ]
-  )
-
-  if include_container:
-    return ObjectContainer(objects=[video_clip_object])
-  else:
-    return video_clip_object
 ########################################################################################################################
 # This is for audio RSS Feed.  Seems to work with LIMITED TESTING OF RSS feeds
 @route(PREFIX + '/audiorss')
 def AudioRSS(title, url):
 
-# The ProduceRSS try above tells us if the RSS feed is the correct format. so we do not need to put this function's data pull in a try/except
-
+# The ProduceRSS try above tells us if the RSS feed is the correct format. so we should not need to put this function's data pull in a try/except
   oc = ObjectContainer(title2=title)
   feed_title = title
   xml = XML.ElementFromURL(url)
   for item in xml.xpath('//item'):
-    epUrl = item.xpath('./link//text()')[0]
+    try:
+      epUrl = item.xpath('./link//text()')[0]
+    except:
+      continue
     title = item.xpath('./title//text()')[0]
     date = Datetime.ParseDate(item.xpath('./pubDate//text()')[0])
     # The description actually contains pubdate, link with thumb and description so we need to break it up
@@ -257,23 +228,28 @@ def AudioRSS(title, url):
       if el.tail: summary.append(el.tail)
 	
     summary = '. '.join(summary)
+    try:
+      media_url = item.xpath('./enclosure//@url')[0]
+    except:
+      media_url = ''
 
-    #test = 'true'
     test = URLTest(epUrl)
-    if test == 'true':
+    if test == 'true' and 'archive.org' not in url:
       oc.add(AlbumObject(
         url = epUrl + '#Track', 
         title = title, 
         summary = summary, 
         thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
-        #thumb = thumb, 
         originally_available_at = date
       ))
       oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
     else:
-      Log('The url test failed and returned a value of %s' %test)
-      oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service for this audio feed", summary='There is not a Plex URL service for %s.' %title))
+      if media_url:
+        oc.add(CreateObject(title=title, summary = summary, originally_available_at = date, url=media_url))
+      else:
+        Log('The url test failed and returned a value of %s' %test)
+        oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service for Video", summary='There is not a Plex URL service for %s.' %title))
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title, show_type='audio'), title="Delete %s" %feed_title, summary="Click here to delete this feed"))
 
@@ -285,6 +261,54 @@ def AudioRSS(title, url):
   else:
     return oc
 
+####################################################################################################
+# This function creates an object container for RSS feeds that have a media file in the feed
+# Not sure what other types there may be to add. Should we put flac or ogg here? Are there containers for these and what are they?
+@route(PREFIX + '/createobject')
+def CreateObject(url, title, summary, originally_available_at, include_container=False):
+
+  if url.endswith('.mp3'):
+    container = 'mp3'
+    audio_codec = AudioCodec.MP3
+  elif  url.endswith('.m4a') or url.endswith('.mp4') or url.endswith('MPEG4') or url.endswith('h.264'):
+    container = Container.MP4
+  elif url.endswith('.flv') or url.endswith('Flash+Video'):
+    container = Container.FLV
+  elif url.endswith('.mkv'):
+    container = Container.MKV
+
+  if url.endswith('.mp3') or url.endswith('.m4a'):
+    object_type = TrackObject
+  elif url.endswith('.mp4') or url.endswith('MPEG4') or url.endswith('h.264') or url.endswith('.flv') or url.endswith('Flash+Video') or url.endswith('.mkv'):
+    audio_codec = AudioCodec.AAC
+    object_type = VideoClipObject
+  else:
+    Log('entered last else the value of url is %s' %url)
+    new_object = DirectoryObject(key=Callback(URLNoService, title=title), title="Media Type Not Supported", summary='The video file %s is not a type currently supported by this channel' %url)
+    return new_object
+
+  new_object = object_type(
+    key = Callback(CreateObject, url=url, title=title, summary=summary, originally_available_at=originally_available_at, include_container=True),
+    rating_key = url,
+    title = title,
+    summary = summary,
+    originally_available_at = originally_available_at,
+    items = [
+      MediaObject(
+        parts = [
+          PartObject(key=url)
+            ],
+            container = container,
+            audio_codec = audio_codec,
+            audio_channels = 2
+      )
+    ]
+  )
+
+  if include_container:
+    return ObjectContainer(objects=[new_object])
+  else:
+    return new_object
 #############################################################################################################################
 # this checks to see if the RSS feed is a YouTube playlist. Currently this plugin does not work with YouTube Playlist
 @route(PREFIX + '/checkplaylist')
