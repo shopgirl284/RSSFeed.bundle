@@ -272,6 +272,7 @@ def CreateObject(url, title, summary, originally_available_at, include_container
     audio_codec = AudioCodec.MP3
   elif  url.endswith('.m4a') or url.endswith('.mp4') or url.endswith('MPEG4') or url.endswith('h.264'):
     container = Container.MP4
+    audio_codec = AudioCodec.AAC
   elif url.endswith('.flv') or url.endswith('Flash+Video'):
     container = Container.FLV
   elif url.endswith('.mkv'):
