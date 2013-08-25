@@ -103,7 +103,7 @@ def ProduceRss(title, show_type):
             thumb = rss_page.xpath("//channel/image/url//text()")[0]
           except:
             thumb = R(ICON)
-        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url), title=title, summary=description, thumb=thumb))
+        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type=show_type), title=title, summary=description, thumb=thumb))
       except:
         oc.add(DirectoryObject(key=Callback(URLError, url=url), title="Invalid or Incompatible URL", summary="The URL entered in the database was either incorrect or incompatible with this channel."))
     else:
@@ -121,7 +121,7 @@ def ProduceRss(title, show_type):
 ########################################################################################################################
 # This is for video RSS Feeds.  Seems to work with different RSS feeds
 @route(PREFIX + '/showrss')
-def ShowRSS(title, url):
+def ShowRSS(title, url, show_type):
 
 # The ProduceRSS try above tells us if the RSS feed is the correct format. so we do not need to put this function's data pull in a try/except
   oc = ObjectContainer(title2=title)
@@ -133,7 +133,7 @@ def ShowRSS(title, url):
     except:
       continue
     title = item.xpath('./title//text()')[0]
-    date = Datetime.ParseDate(item.xpath('./pubDate//text()')[0])
+    date = item.xpath('./pubDate//text()')[0]
     # The description actually contains pubdate, link with thumb and description so we need to break it up
     epDesc = item.xpath('./description//text()')[0]
     try:
@@ -165,21 +165,31 @@ def ShowRSS(title, url):
     test = URLTest(epUrl)
     # Internet Archives RSS Feed sometimes have a mix of video and audio so best to use alternate function for it
     if test == 'true' and 'archive.org' not in url:
-      oc.add(VideoClipObject(
-        url = epUrl, 
-        title = title, 
-        summary = summary, 
-        thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
-        originally_available_at = date
-      ))
-      oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
-
+      if show_type == 'video':
+        oc.add(VideoClipObject(
+          url = epUrl, 
+          title = title, 
+          summary = summary, 
+          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
+          originally_available_at = Datetime.ParseDate(date)
+        ))
+      else:
+        # Safest to use an album object and not a track object here since not sure what we may encounter
+        oc.add(AlbumObject(
+          url = epUrl, 
+          title = title, 
+          summary = summary, 
+          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
+          originally_available_at = Datetime.ParseDate(date)
+        ))
+      #oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
     else:
       if media_url:
         oc.add(CreateObject(title=title, summary = summary, originally_available_at = date, thumb=thumb, url=media_url))
       else:
         Log('The url test failed and returned a value of %s' %test)
         oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Media Files for Video", summary='There is not a Plex URL service or media files for %s.' %title))
+
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title, show_type='video'), title="Delete %s" %feed_title, summary="Click here to delete this feed"))
 
@@ -224,7 +234,7 @@ def CreateObject(url, title, summary, originally_available_at, thumb, include_co
     title = title,
     thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)),
     summary = summary,
-    originally_available_at = originally_available_at,
+    originally_available_at = Datetime.ParseDate(originally_available_at),
     items = [
       MediaObject(
         parts = [
