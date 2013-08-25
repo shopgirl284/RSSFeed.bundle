@@ -22,5 +22,14 @@ A LINK TO THE REMOKU WEB BASED REMOTE CONTROL AT http://remoku.tv/ MAKES INPUT O
 THE ROKU USER ENTRY ONLY RETURNS A SEARCH PAGE IN PLEX CHANNEL VERSION 2.6.4 OR LOWER, SO ROKU USERS NEED TO USE THE PLEX TEST CHANNEL VERSION 2.6.5. OTHERWISE, THE SEARCH ENTRY PAGE FOR ROKU WILL RETURN AN ENTRY FOR EVERY LETTER OF THE URL ADDRESS THAT YOU ENTER. 
 
 IMPORTANT NOTE FOR ADVANCED USERS:
-For those who may decide to edit the json data file attached to this channel to add RSS feeds there are a few things to keep in mind. It pulls the original list of feeds from a JSON data file but then saves that list to a local dictionary file. So you can add the necessary data for the show to the JSON file but would then need to click the Reset Shows button in the Channel Tools section for it to accept these changes. 
-And the numbering system must stay intact, so never completely delete an entry from the json file, just remove or add the data in the specific entry fields you want to add or delete.
+For those who may decide to edit the json data file attached to this channel to add RSS feeds there are a few things to keep in mind. 
+It pulls the original list of feeds from that JSON data file but then saves that data to a local dictionary file and does not access
+or update the json data file afterwards. So if you add data for the show to the JSON file, you would then need to click the Reset Shows 
+button in the Channel Tools section for those changes to show up in the channel. And you would lose any changes you made using the add
+or delete button in the channel. 
+
+I cannot provide any support for any errors or problems you may encounter by using this method. The numbering system must 
+stay intact, so never completely delete an entry from the json file, just remove or add the data in the specific entry 
+fields you want to add or delete. And even one comma or quote mark out of place, could break the channel. Therefore if 
+you choose this method and encounter any issues, I cannot provide any support and your only option will be to reinstall
+the channel and start from scratch.
