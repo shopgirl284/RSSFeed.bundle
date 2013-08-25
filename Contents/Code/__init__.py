@@ -47,7 +47,7 @@ def MainMenu():
   
   oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Video Feeds", show_type='video'), title="RSS Video Feeds"))
   # WOULD LIKE TO ADD AUDIO BACK LATER BUT WITH LIMITED CHOICES, SEEMS IT WOULD JUST BE CONFUSING TO USERS FOR NOW
-  oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Audio Feeds", show_type='audio'), title="RSS Audio Feeds"))
+  #oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Audio Feeds", show_type='audio'), title="RSS Audio Feeds"))
   oc.add(DirectoryObject(key=Callback(SectionTools, title="Channel Tools"), title="Channel Tools", summary="Click here to for reset options, extras and special instructions"))
 
   return oc
@@ -133,7 +133,10 @@ def ShowRSS(title, url):
   feed_title = title
   xml = XML.ElementFromURL(url)
   for item in xml.xpath('//item'):
-    epUrl = item.xpath('./link//text()')[0]
+    try:
+      epUrl = item.xpath('./link//text()')[0]
+    except:
+      continue
     title = item.xpath('./title//text()')[0]
     date = Datetime.ParseDate(item.xpath('./pubDate//text()')[0])
     # The description actually contains pubdate, link with thumb and description so we need to break it up
@@ -157,6 +160,10 @@ def ShowRSS(title, url):
       if el.tail: summary.append(el.tail)
 	
     summary = '. '.join(summary)
+    try:
+      media_url = item.xpath('./enclosure//@url')[0]
+    except:
+      media_url = ''
 
     test = URLTest(epUrl)
     if test == 'true':
@@ -170,8 +177,11 @@ def ShowRSS(title, url):
       oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
 
     else:
-      Log('The url test failed and returned a value of %s' %test)
-      oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service for Video", summary='There is not a Plex URL service for %s.' %title))
+      if media_url.endswith('.mp4'):
+        oc.add(CreateVideoClipObject(title=title, summary = summary, originally_available_at = date, url=media_url))
+      else:
+        Log('The url test failed and returned a value of %s' %test)
+        oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service for Video", summary='There is not a Plex URL service for %s.' %title))
 
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title, show_type='video'), title="Delete %s" %feed_title, summary="Click here to delete this feed"))
 
@@ -183,6 +193,35 @@ def ShowRSS(title, url):
   else:
     return oc
 
+####################################################################################################
+@route(PREFIX + '/createvideoobject')
+def CreateVideoClipObject(url, title, summary, originally_available_at, include_container=False):
+
+  container = Container.MP4
+  audio_codec = AudioCodec.AAC
+
+  video_clip_object = VideoClipObject(
+    key = Callback(CreateVideoClipObject, url=url, title=title, summary=summary, originally_available_at=originally_available_at, include_container=True),
+    rating_key = url,
+    title = title,
+    summary = summary,
+    originally_available_at = originally_available_at,
+    items = [
+      MediaObject(
+        parts = [
+          PartObject(key=url)
+            ],
+            container = container,
+            audio_codec = audio_codec,
+            audio_channels = 2
+      )
+    ]
+  )
+
+  if include_container:
+    return ObjectContainer(objects=[video_clip_object])
+  else:
+    return video_clip_object
 ########################################################################################################################
 # This is for audio RSS Feed.  Seems to work with LIMITED TESTING OF RSS feeds
 @route(PREFIX + '/audiorss')
