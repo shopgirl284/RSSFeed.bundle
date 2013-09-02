@@ -34,4 +34,4 @@ stay intact, so never completely delete an entry from the json file, just remove
 fields you want to add or delete. And even one comma or quote mark out of place, could break the channel. Therefore if 
 you choose this method and encounter any issues, since even a clean install will not alter the local dictionary, I cannot provide any support.
 
-IMMEDIATELY CHOOSING THE "RESET RSS FEEDS" FROM THE CHANNEL TOOLS AFTER A CLEAN INSTALL MAY REPAIR THE DATA STRUCTURE, BUT THERE ARE NO GUARANTEES.
+IMMEDIATELY CHOOSING THE "RESET RSS FEEDS" FROM THE CHANNEL TOOLS AFTER A CLEAN INSTALL MAY REPAIR THE DATA STRUCTURE, BUT THERE ARE NO GUARANTEES THAT THIS METHOD WILL WORK.
