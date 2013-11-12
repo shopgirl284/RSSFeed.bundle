@@ -103,7 +103,7 @@ def ProduceRss(title, show_type):
             thumb = rss_page.xpath("//channel/image/url//text()")[0]
           except:
             thumb = R(ICON)
-        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type=show_type), title=title, summary=description, thumb=thumb))
+        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type=show_type, thumb=thumb), title=title, summary=description, thumb=thumb))
       except:
         oc.add(DirectoryObject(key=Callback(URLError, url=url), title="Invalid or Incompatible URL", summary="The URL entered in the database was either incorrect or incompatible with this channel."))
     else:
@@ -121,7 +121,7 @@ def ProduceRss(title, show_type):
 ########################################################################################################################
 # This is for video RSS Feeds.  Seems to work with different RSS feeds
 @route(PREFIX + '/showrss')
-def ShowRSS(title, url, show_type):
+def ShowRSS(title, url, show_type, thumb):
 
 # The ProduceRSS try above tells us if the RSS feed is the correct format. so we do not need to put this function's data pull in a try/except
   oc = ObjectContainer(title2=title)
@@ -149,7 +149,7 @@ def ShowRSS(title, url, show_type):
       try:
         thumb = html.cssselect('img')[0].get('src')
       except:
-        thumb = R(ICON)
+        pass
 
     summary = []
 
@@ -158,7 +158,7 @@ def ShowRSS(title, url, show_type):
 	
     summary = '. '.join(summary)
     try:
-      media_url = item.xpath('./enclosure//@url')[0]
+      media_url = item.xpath('.//media:content[contains(@type,"video") or contains(@type,"audio")]//@url', namespaces=NAMESPACES2)[0]
     except:
       media_url = ''
 
@@ -182,15 +182,18 @@ def ShowRSS(title, url, show_type):
           thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
           originally_available_at = Datetime.ParseDate(date)
         ))
-      #oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
+      oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
     else:
       if media_url:
-        oc.add(CreateObject(title=title, summary = summary, originally_available_at = date, thumb=thumb, url=media_url))
+        oc.add(CreateObject(url=media_url, title=title, summary = summary, originally_available_at = date, thumb=thumb))
       else:
         Log('The url test failed and returned a value of %s' %test)
         oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Media Files for Video", summary='There is not a Plex URL service or media files for %s.' %title))
 
 
+  # Adding this below causes an error with the Directory object above
+  #oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
+  
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title, show_type='video'), title="Delete %s" %feed_title, summary="Click here to delete this feed"))
 
   oc.add(InputDirectoryObject(key=Callback(AddImage, title=feed_title, show_type='video', url=url), title="Add Image For %s" %feed_title, summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
@@ -207,20 +210,24 @@ def ShowRSS(title, url, show_type):
 @route(PREFIX + '/createobject')
 def CreateObject(url, title, summary, originally_available_at, thumb, include_container=False):
 
-  if url.endswith('.mp3'):
+  local_url=url.split('?')[0]
+  if local_url.endswith('.mp3'):
     container = 'mp3'
     audio_codec = AudioCodec.MP3
-  elif  url.endswith('.m4a') or url.endswith('.mp4') or url.endswith('MPEG4') or url.endswith('h.264'):
+  elif  local_url.endswith('.m4a') or local_url.endswith('.mp4') or local_url.endswith('MPEG4') or local_url.endswith('h.264'):
     container = Container.MP4
     audio_codec = AudioCodec.AAC
-  elif url.endswith('.flv') or url.endswith('Flash+Video'):
+  elif local_url.endswith('.flv') or local_url.endswith('Flash+Video'):
     container = Container.FLV
-  elif url.endswith('.mkv'):
+  elif local_url.endswith('.mkv'):
     container = Container.MKV
+  else:
+    Log('entered else statement')
+    container = ''
 
-  if url.endswith('.mp3') or url.endswith('.m4a'):
+  if local_url.endswith('.mp3') or local_url.endswith('.m4a'):
     object_type = TrackObject
-  elif url.endswith('.mp4') or url.endswith('MPEG4') or url.endswith('h.264') or url.endswith('.flv') or url.endswith('Flash+Video') or url.endswith('.mkv'):
+  elif local_url.endswith('.mp4') or local_url.endswith('MPEG4') or local_url.endswith('h.264') or local_url.endswith('.flv') or local_url.endswith('Flash+Video') or local_url.endswith('.mkv'):
     audio_codec = AudioCodec.AAC
     object_type = VideoClipObject
   else:
@@ -232,8 +239,8 @@ def CreateObject(url, title, summary, originally_available_at, thumb, include_co
     key = Callback(CreateObject, url=url, title=title, summary=summary, originally_available_at=originally_available_at, thumb=thumb, include_container=True),
     rating_key = url,
     title = title,
-    thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)),
     summary = summary,
+    thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)),
     originally_available_at = Datetime.ParseDate(originally_available_at),
     items = [
       MediaObject(
