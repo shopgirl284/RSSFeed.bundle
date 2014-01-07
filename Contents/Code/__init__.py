@@ -44,7 +44,7 @@ def MainMenu():
   
   oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Video Feeds", show_type='video'), title="RSS Video Feeds"))
   oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Audio Feeds", show_type='audio'), title="RSS Audio Feeds"))
-  oc.add(DirectoryObject(key=Callback(SectionTools, title="Channel Tools"), title="Channel Tools", summary="Click here to for reset options, extras and special instructions"))
+  oc.add(DirectoryObject(key=Callback(SectionTools, title="Channel Tools"), title="Channel Tools", thumb=R('icon-feed.png'), summary="Click here to for reset options, extras and special instructions"))
 
   return oc
 #######################################################################################################################
@@ -54,7 +54,7 @@ def SectionTools (title):
 
   oc = ObjectContainer(title2=title)
   oc.add(DirectoryObject(key=Callback(RokuUsers, title="Special Instructions for Roku Users"), title="Special Instructions for Roku Users", summary="Click here to see special instructions necessary for Roku Users to add feeds to this channel"))
-  oc.add(DirectoryObject(key=Callback(ResetShows, title="Reset RSS Feeds"), title="Reset RSS Feeds", summary="Click here to reset your RSS feed list back to the original default list from the JSON data file"))
+  oc.add(DirectoryObject(key=Callback(ResetShows, title="Reset RSS Feeds"), title="Reset RSS Feeds", thumb=R('feed-back.png'), summary="Click here to reset your RSS feed list back to the original default list from the JSON data file"))
 
   return oc
 
@@ -101,13 +101,13 @@ def ProduceRss(title, show_type):
             thumb = R(ICON)
         oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type=show_type, thumb=thumb), title=title, summary=description, thumb=thumb))
       except:
-        oc.add(DirectoryObject(key=Callback(URLError, url=url), title="Invalid or Incompatible URL", summary="The URL entered in the database was either incorrect or incompatible with this channel."))
+        oc.add(DirectoryObject(key=Callback(URLError, url=url), title="Invalid or Incompatible URL", thumb=R('no-feed.png'), summary="The URL was either entered incorrectly or is incompatible with this channel."))
     else:
       i+=1
 
   oc.objects.sort(key = lambda obj: obj.title)
 
-  oc.add(InputDirectoryObject(key=Callback(AddShow, show_type=show_type), title="Add A RSS Feed", summary="Click here to add a new RSS Feed", prompt="Enter the full URL (including http://) for the RSS Feed you would like to add"))
+  oc.add(InputDirectoryObject(key=Callback(AddShow, show_type=show_type), title="Add A RSS Feed", thumb=R('feed-add.png'), summary="Click here to add a new RSS Feed", prompt="Enter the full URL (including http://) for the RSS Feed you would like to add"))
 
   if len(oc) < 1:
     Log ('still no value for objects')
@@ -193,15 +193,15 @@ def ShowRSS(title, url, show_type, thumb):
         oc.add(CreateObject(url=media_url, media_type=media_type, title=title, summary = summary, originally_available_at = date, thumb=thumb))
       else:
         Log('The url test failed and returned a value of %s' %test)
-        oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Media Files for Video", summary='There is not a Plex URL service or media files for %s.' %title))
+        oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Media Files for Video", thumb=R('no-feed.png'), summary='There is not a Plex URL service or link to media files for %s.' %title))
 
 
   # Adding this below causes an error with the Directory object above
   #oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
   
-  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title, show_type='video'), title="Delete %s" %feed_title, summary="Click here to delete this feed"))
+  oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title), title="Delete %s" %feed_title, thumb=R('delete.png'), summary="Click here to delete this feed"))
 
-  oc.add(InputDirectoryObject(key=Callback(AddImage, title=feed_title, show_type='video', url=url), title="Add Image For %s" %feed_title, summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
+  oc.add(InputDirectoryObject(key=Callback(AddImage, title=feed_title, show_type='video', url=url), title="Add Image For %s" %feed_title, thumb=R('img-add.png'), summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
 
   if len(oc) < 1:
     Log ('still no value for objects')
@@ -235,7 +235,7 @@ def CreateObject(url, media_type, title, summary, originally_available_at, thumb
   elif 'video' in media_type:
     object_type = VideoClipObject
   else:
-    new_object = DirectoryObject(key=Callback(URLNoService, title=title), title="Media Type Not Supported", summary='The file %s is not a type currently supported by this channel' %url)
+    new_object = DirectoryObject(key=Callback(URLUnsupported, url=url, title=title), title="Media Type Not Supported", thumb-R('no-feed.png'), summary='The file %s is not a type currently supported by this channel' %url)
     return new_object
 
   new_object = object_type(
@@ -274,7 +274,6 @@ def CheckPlaylist(url):
 
 ############################################################################################################################
 # This is to test if there is a Plex URL service for  given url.  
-# Seems to return some RSS feeds as not having a service when they do, so currently unused and needs more testing
 #       if URLTest(url) == "true":
 @route(PREFIX + '/urltest')
 def URLTest(url):
@@ -285,19 +284,18 @@ def URLTest(url):
   return url_good
 
 ############################################################################################################################
-# This keeps a section of the feed from giving an error for the entire section if one of the URLs does not have a service
+# This keeps a section of the feed from giving an error for the entire section if one of the URLs does not have a service or attached media
 @route(PREFIX + '/urlnoservice')
 def URLNoService(title):
-  return ObjectContainer(header="Error", message='There is no Plex URL service for the %s. A Plex URL service is required for RSS feeds to work. You can use the Delete Show button to remove this show' %title)
+  return ObjectContainer(header="Error", message='There is no Plex URL service or media file link for the %s feed entry. A Plex URL service or a link to media files in the feed entry is required for this channel to create playable media. If all entries for this feed give this error, you can use the Delete button shown at the end of the feed entry listings to remove this feed' %title)
 
 ############################################################################################################################
-# This function creates a directory for feeds that do not have a URL service and keeps a section of feeds from giving an error for the entire
-# section if one of the URLs does not have a URL service and directs the user to delete the bad url
+# This function creates an error message for feed entries that have an usupported media type and keeps a section of feeds from giving an error for the entire list of entries
 @route(PREFIX + '/urlunsupported')
-def URLUnsupported(url):
+def URLUnsupported(url, title):
   oc = ObjectContainer()
   
-  oc.add(DirectoryObject(key=Callback(DeleteShow, title="Delete RSS Feed", url=url), title="Delete RSS Feed", summary="Delete this Unsupported URL from your list of feeds"))
+  return ObjectContainer(header="Error", message='The media for the %s feed entry is of a type that is not supported. If you get this error with all entries for this feed, you can use the Delete option shown at the end of the feed entry listings to remove this feed from the channel' %title)
 
   return oc
 
@@ -311,7 +309,7 @@ def URLError(url):
   
   oc.add(DirectoryObject(key=Callback(EditShow, url=url), title="Edit Feed"))
 
-  oc.add(DirectoryObject(key=Callback(DeleteShow, title="Delete Feed", url=url), title="Delete Feed", summary="Delete this URL from your list of feeds"))
+  oc.add(DirectoryObject(key=Callback(DeleteShow, title="Delete Feed", url=url), title="Delete Feed", thumb=R('delete.png'), summary="Delete this URL from your list of feeds"))
 
   return oc
 
@@ -326,7 +324,7 @@ def EditShow(url):
 # cannot just delete the entry or it will mess up the numbering and cause errors in the program.
 # Instead we will make the entry blank and then check for reuse in the add function
 @route(PREFIX + '/deleteshow')
-def DeleteShow(url, title, show_type):
+def DeleteShow(url, title):
   i=1
   shows = Dict["MyShows"]
   for show in shows:
@@ -349,7 +347,7 @@ def AddShow(show_type, query, url=''):
   url = query
   # Checking to make sure http on the front
   if url.startswith('www'):
-    url = http + '//' + url
+    url = 'http://' + url
   else:
     pass
   i=1
