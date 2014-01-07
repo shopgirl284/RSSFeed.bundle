@@ -17,13 +17,9 @@ def Start():
   ObjectContainer.art = R(ART)
 
   DirectoryObject.thumb = R(ICON)
-  DirectoryObject.art = R(ART)
-  EpisodeObject.thumb = R(ICON)
-  EpisodeObject.art = R(ART)
   VideoClipObject.thumb = R(ICON)
-  VideoClipObject.art = R(ART)
   
-  #HTTP.CacheTime = CACHE_1HOUR 
+  HTTP.CacheTime = CACHE_1HOUR 
 
   #This Checks to see if there is a list of feeds
   if Dict['MyShows'] == None:
@@ -157,10 +153,19 @@ def ShowRSS(title, url, show_type, thumb):
       if el.tail: summary.append(el.tail)
 	
     summary = '. '.join(summary)
+
+    # Here we pull the media url if it is included in the rss feed
+    # First we try the enclosure if there isn't an enclosure we try the media:content
+    # For now we are just going to pull the first media:content since that is usually the highest quality and there is no consistency in attributes
     try:
-      media_url = item.xpath('.//media:content[contains(@type,"video") or contains(@type,"audio")]//@url', namespaces=NAMESPACES2)[0]
+      media_url = item.xpath('.//enclosure[contains(@type,"video") or contains(@type,"audio")]/@url')[0]
+      media_type = item.xpath('.//enclosure[contains(@type,"video") or contains(@type,"audio")]/@type')[0]
     except:
-      media_url = ''
+      try:
+        media_url = item.xpath('.//media:content[contains(@type,"video") or contains(@type,"audio")]/@url', namespaces=NAMESPACES2)[0]
+        media_type = item.xpath('.//media:content[contains(@type,"video") or contains(@type,"audio")]/@type', namespaces=NAMESPACES2)[0]
+      except:
+        media_url = ''
 
     test = URLTest(epUrl)
     # Internet Archives RSS Feed sometimes have a mix of video and audio so best to use alternate function for it
@@ -185,7 +190,7 @@ def ShowRSS(title, url, show_type, thumb):
       oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
     else:
       if media_url:
-        oc.add(CreateObject(url=media_url, title=title, summary = summary, originally_available_at = date, thumb=thumb))
+        oc.add(CreateObject(url=media_url, media_type=media_type, title=title, summary = summary, originally_available_at = date, thumb=thumb))
       else:
         Log('The url test failed and returned a value of %s' %test)
         oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Media Files for Video", summary='There is not a Plex URL service or media files for %s.' %title))
@@ -208,15 +213,15 @@ def ShowRSS(title, url, show_type, thumb):
 # This function creates an object container for RSS feeds that have a media file in the feed
 # Not sure what other types there may be to add. Should we put flac or ogg here? Are there containers for these and what are they?
 @route(PREFIX + '/createobject')
-def CreateObject(url, title, summary, originally_available_at, thumb, include_container=False):
+def CreateObject(url, media_type, title, summary, originally_available_at, thumb, include_container=False):
 
   local_url=url.split('?')[0]
+  audio_codec = AudioCodec.AAC
   if local_url.endswith('.mp3'):
     container = 'mp3'
     audio_codec = AudioCodec.MP3
   elif  local_url.endswith('.m4a') or local_url.endswith('.mp4') or local_url.endswith('MPEG4') or local_url.endswith('h.264'):
     container = Container.MP4
-    audio_codec = AudioCodec.AAC
   elif local_url.endswith('.flv') or local_url.endswith('Flash+Video'):
     container = Container.FLV
   elif local_url.endswith('.mkv'):
@@ -225,18 +230,16 @@ def CreateObject(url, title, summary, originally_available_at, thumb, include_co
     Log('entered else statement')
     container = ''
 
-  if local_url.endswith('.mp3') or local_url.endswith('.m4a'):
+  if 'audio' in media_type:
     object_type = TrackObject
-  elif local_url.endswith('.mp4') or local_url.endswith('MPEG4') or local_url.endswith('h.264') or local_url.endswith('.flv') or local_url.endswith('Flash+Video') or local_url.endswith('.mkv'):
-    audio_codec = AudioCodec.AAC
+  elif 'video' in media_type:
     object_type = VideoClipObject
   else:
-    Log('entered last else the value of url is %s' %url)
-    new_object = DirectoryObject(key=Callback(URLNoService, title=title), title="Media Type Not Supported", summary='The video file %s is not a type currently supported by this channel' %url)
+    new_object = DirectoryObject(key=Callback(URLNoService, title=title), title="Media Type Not Supported", summary='The file %s is not a type currently supported by this channel' %url)
     return new_object
 
   new_object = object_type(
-    key = Callback(CreateObject, url=url, title=title, summary=summary, originally_available_at=originally_available_at, thumb=thumb, include_container=True),
+    key = Callback(CreateObject, url=url, media_type=media_type, title=title, summary=summary, originally_available_at=originally_available_at, thumb=thumb, include_container=True),
     rating_key = url,
     title = title,
     summary = summary,
