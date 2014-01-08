@@ -235,7 +235,7 @@ def CreateObject(url, media_type, title, summary, originally_available_at, thumb
   elif 'video' in media_type:
     object_type = VideoClipObject
   else:
-    new_object = DirectoryObject(key=Callback(URLUnsupported, url=url, title=title), title="Media Type Not Supported", thumb-R('no-feed.png'), summary='The file %s is not a type currently supported by this channel' %url)
+    new_object = DirectoryObject(key=Callback(URLUnsupported, url=url, title=title), title="Media Type Not Supported", thumb=R('no-feed.png'), summary='The file %s is not a type currently supported by this channel' %url)
     return new_object
 
   new_object = object_type(
