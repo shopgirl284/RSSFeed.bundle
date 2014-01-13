@@ -115,7 +115,8 @@ def ProduceRss(title, show_type):
   else:
     return oc
 ########################################################################################################################
-# This is for video RSS Feeds.  Seems to work with different RSS feeds
+# This is for producing items in a RSS Feeds.  We try to make most things optional so it accepts the most feed formats
+# But each feed must have a title, date, and either a link or media_url
 @route(PREFIX + '/showrss')
 def ShowRSS(title, url, show_type, thumb):
 
@@ -124,68 +125,92 @@ def ShowRSS(title, url, show_type, thumb):
   feed_title = title
   xml = XML.ElementFromURL(url)
   for item in xml.xpath('//item'):
+    # We try to pull the enclosure or the first media:content given since that tends to be the highest quality.
+    # There is too much variety in the way quality is specified to pull all and give quality options
+    # This code can be added to only return meida of type audio or video - [contains(@type,"video") or contains(@type,"audio")]
+    # Not currently in code so we can specify why a feed item failed due to being the wrong type of media
     try:
-      epUrl = item.xpath('./link//text()')[0]
+      media_url = item.xpath('.//enclosure/@url')[0]
+      media_type = item.xpath('.//enclosure/@type')[0]
     except:
-      continue
-    title = item.xpath('./title//text()')[0]
-    date = item.xpath('./pubDate//text()')[0]
-    # The description actually contains pubdate, link with thumb and description so we need to break it up
-    epDesc = item.xpath('./description//text()')[0]
+      try:
+        media_url = item.xpath('.//media:content/@url', namespaces=NAMESPACES2)[0]
+        media_type = item.xpath('.//media:content/@type', namespaces=NAMESPACES2)[0]
+      except:
+        media_url = None
+
+    try:
+      link = item.xpath('./link//text()')[0]
+    except:
+      # If there is a media_url, we can allow the url field to be blank since it does not have to go through the URL service
+      if media_url:
+        link = None
+      else:
+        continue
+    # The link is not needed since these have a media url, but there may be a feedburner feed that has a Plex URL service
     try:
       new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
-      epUrl = new_url
+      link = new_url
     except:
       pass
-    html = HTML.ElementFromString(epDesc)
-    els = list(html)
+    title = item.xpath('./title//text()')[0]
+    # EVERYTHING BUT THE TITLE IS MADE OPTIONAL
     try:
-      thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
+      date = item.xpath('./pubDate//text()')[0]
     except:
-      try:
-        thumb = html.cssselect('img')[0].get('src')
-      except:
-        pass
-
-    summary = []
-
-    for el in els:
-      if el.tail: summary.append(el.tail)
-	
-    summary = '. '.join(summary)
-
-    # Here we pull the media url if it is included in the rss feed
-    # First we try the enclosure if there isn't an enclosure we try the media:content
-    # For now we are just going to pull the first media:content since that is usually the highest quality and there is no consistency in attributes
+      date = None
     try:
-      media_url = item.xpath('.//enclosure[contains(@type,"video") or contains(@type,"audio")]/@url')[0]
-      media_type = item.xpath('.//enclosure[contains(@type,"video") or contains(@type,"audio")]/@type')[0]
+      item_thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
     except:
-      try:
-        media_url = item.xpath('.//media:content[contains(@type,"video") or contains(@type,"audio")]/@url', namespaces=NAMESPACES2)[0]
-        media_type = item.xpath('.//media:content[contains(@type,"video") or contains(@type,"audio")]/@type', namespaces=NAMESPACES2)[0]
-      except:
-        media_url = ''
+      item_thumb = None
+    try:
+      # The description actually contains pubdate, link with thumb and description so we need to break it up
+      epDesc = item.xpath('./description//text()')[0]
+      (summary, new_thumb) = SummaryFind(epDesc)
+      if new_thumb:
+        item_thumb = new_thumb
+    except:
+      summary = None
+    # Not having a value for the summary causes issues
+    if not summary:
+      summary = 'no summary'
+    if item_thumb:
+      thumb = item_thumb
 
-    test = URLTest(epUrl)
-    # Internet Archives RSS Feed sometimes have a mix of video and audio so best to use alternate function for it
-    if test == 'true' and 'archive.org' not in url:
+    # With Archive.org there is an issue where it is using https instead of http sometimes for the links and media urls
+    # and when this happens it causes errors so we have to check those urls here and change them
+    if link and link.startswith('https://archive.org/'):
+      link = link.replace('https://', 'http://')
+    if media_url and media_url.startswith('https://archive.org/'):
+      media_url = media_url.replace('https://', 'http://')
+    # Since we allow a blank link if there is a media url, we make sure it has a link before sending it to the URLTest needed for URLs without a media_url
+    if link:
+      test = URLTest(link)
+    else:
+      test = 'false'
+    # Feeds from archive.org load faster using the CreateObject() function versus the URL service.
+    # This also catches items with no media and allows for feed that may contain both audio and video items
+    # If archive.org is sent to URL service, adding #video to the end of the link makes it load faster
+    if test == 'true' and 'archive.org' not in link:
+      if date:
+        date = Datetime.ParseDate(date)
       if show_type == 'video':
         oc.add(VideoClipObject(
-          url = epUrl, 
+          url = link, 
           title = title, 
           summary = summary, 
-          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
-          originally_available_at = Datetime.ParseDate(date)
+          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), 
+          originally_available_at = date
         ))
       else:
         # Safest to use an album object and not a track object here since not sure what we may encounter
+        # Audio for Archive.org will give error if you add #Track or use a TrackObject() here
         oc.add(AlbumObject(
-          url = epUrl, 
+          url = link, 
           title = title, 
           summary = summary, 
-          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)), 
-          originally_available_at = Datetime.ParseDate(date)
+          thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON), 
+          originally_available_at = date
         ))
       oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
     else:
@@ -211,12 +236,16 @@ def ShowRSS(title, url, show_type, thumb):
 
 ####################################################################################################
 # This function creates an object container for RSS feeds that have a media file in the feed
-# Not sure what other types there may be to add. Should we put flac or ogg here? Are there containers for these and what are they?
 @route(PREFIX + '/createobject')
-def CreateObject(url, media_type, title, summary, originally_available_at, thumb, include_container=False):
+def CreateObject(url, media_type, title, originally_available_at, thumb, summary, include_container=False):
 
   local_url=url.split('?')[0]
   audio_codec = AudioCodec.AAC
+  # Since we want to make the date optional, we need to handle the Datetime.ParseDate() as a try in case it is already done or blank
+  try:
+    originally_available_at = Datetime.ParseDate(originally_available_at)
+  except:
+    pass
   if local_url.endswith('.mp3'):
     container = 'mp3'
     audio_codec = AudioCodec.MP3
@@ -227,24 +256,26 @@ def CreateObject(url, media_type, title, summary, originally_available_at, thumb
   elif local_url.endswith('.mkv'):
     container = Container.MKV
   else:
-    Log('entered else statement')
+    Log('container type is None')
     container = ''
 
   if 'audio' in media_type:
+    # This gives errors with AlbumObject, so it has to be a TrackObject
     object_type = TrackObject
   elif 'video' in media_type:
     object_type = VideoClipObject
   else:
+    Log('This media type is not supported')
     new_object = DirectoryObject(key=Callback(URLUnsupported, url=url, title=title), title="Media Type Not Supported", thumb=R('no-feed.png'), summary='The file %s is not a type currently supported by this channel' %url)
     return new_object
-
+    
   new_object = object_type(
     key = Callback(CreateObject, url=url, media_type=media_type, title=title, summary=summary, originally_available_at=originally_available_at, thumb=thumb, include_container=True),
     rating_key = url,
     title = title,
     summary = summary,
-    thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=R(ICON)),
-    originally_available_at = Datetime.ParseDate(originally_available_at),
+    thumb = Resource.ContentsOfURLWithFallback(thumb, fallback=ICON),
+    originally_available_at = originally_available_at,
     items = [
       MediaObject(
         parts = [
@@ -263,6 +294,7 @@ def CreateObject(url, media_type, title, summary, originally_available_at, thumb
     return new_object
 #############################################################################################################################
 # this checks to see if the RSS feed is a YouTube playlist. Currently this plugin does not work with YouTube Playlist
+# THIS IS NOT BEING USED
 @route(PREFIX + '/checkplaylist')
 def CheckPlaylist(url):
   show_rss=''
@@ -271,6 +303,22 @@ def CheckPlaylist(url):
   else:
     show_rss = 'good'
   return show_rss
+
+#############################################################################################################################
+# The description actually contains pubdate, link with thumb and description so we need to break it up
+@route(PREFIX + '/summaryfind')
+def SummaryFind(epDesc):
+  
+  html = HTML.ElementFromString(epDesc)
+  description = html.xpath('//p//text()')
+  summary = ' '.join(description)
+  if 'Tags:' in summary:
+    summary = summary.split('Tags:')[0]
+  try:
+    item_thumb = html.cssselect('img')[0].get('src')
+  except:
+    item_thumb = None
+  return (summary, item_thumb)
 
 ############################################################################################################################
 # This is to test if there is a Plex URL service for  given url.  
@@ -348,6 +396,9 @@ def AddShow(show_type, query, url=''):
   # Checking to make sure http on the front
   if url.startswith('www'):
     url = 'http://' + url
+  # Checking for archive.org urls with https
+  elif url.startswith('https://archive.org/') :
+    url = url.replace('https://', 'http://')
   else:
     pass
   i=1
