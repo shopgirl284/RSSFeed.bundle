@@ -1,0 +1,39 @@
+This is a Plex channel that can pull your favorite RSS Feeds. You are able to enter the url of the feed as well as add the http address of an image for each feed.
+
+It can pull feeds with available Plex URL services or feeds that include media file links in the RSS feed page. It requires a specific structure of the shows URL. Please see the notes below.
+
+NOTES AND INSTRUCTIONS FOR USING THIS CHANNEL
+
+I have added a "Channel Tools" section with some additional tools that can be useful including resetting the feeds to the default in case you have any problems, instructions for Roku users. 
+
+<<<<<<< HEAD
+RSS feeds seems to work for any RSS feed, I have tested so far, as long as there is already a Plex URL service for the website or direct links to the video files (like .mp4) in the RSS feed. So you cannot enter a URL, for example, your local news station unless someone has created a URL service for it or the feed has direct video file links. I have included error testing, so the channel will tell you if no URL service exists for the show you entered.  
+=======
+RSS feeds seems to work for any RSS feed, I have tested so far, as long as there is already a Plex URL service for the webstie (meaning the PlexIt button works on linked video pages) or media file links are included in the RSS feed. So you cannot enter a URL, for example, your local news station unless someone has created a URL service for it or they included links to the media files in the feed. I have included error testing, so the channel will tell you if no URL service exists for the feed you entered.  
+>>>>>>> 121de758b0e44c0bfffee1cb76d8e536ff82ee2b
+
+The format for the URL to be entered is given below and usually follows the URL address given in your browsers address bar:
+
+Example: http://www.cwtv.com/feed/video/xml
+
+
+IMPORTANT INSTRUCTIONS FOR ROKU USERS:
+<<<<<<< HEAD
+=======
+
+ROKU USERS MUST ACCESS THE CHANNEL WITH THE PLEX CHANNEL VERSION 2.6.5 (CURRENTLY THE PLEX TEST CHANNEL) TO HAVE ACCESS TO THE CORRECT USER ENTRY SCREEN. IF YOU DO NOT ALREADY HAVE THE PLEX TEST CHANNEL, IT IS AVAILABLE AT http://streamfree.tv...984-thread.html. TO ENSURE YOU HAVE THE RIGHT VERSION, LOOK IN THE UPPER RIGHT HAND CORNER OF YOUR PREFERENCES SCREEN. SOMETIMES JUST ENTERING THE CHANNEL STORE OR REBOOTING THE ROKU WILL UPDATE THE CHANNEL.
+>>>>>>> 121de758b0e44c0bfffee1cb76d8e536ff82ee2b
+
+A LINK TO THE REMOKU WEB BASED REMOTE CONTROL AT http://remoku.tv/ MAKES INPUT OF URLS VERY EASY. LINK IT TO THE ADDRESS OF YOUR ROKU MACHINE. MORE INFO IS AVAILABLE AT http://forums.roku.c...p?f=28&t=46852. ONCE YOU HAVE REMOKU RUNNING IN YOUR BROWSER, YOU CAN THEN CAN COPY AND PASTE THE URL ADDRESS INTO THE REMOKU DIRECTLY INTO THE ADD CHANNEL USER ENTRY.
+
+IMPORTANT NOTE FOR PLEX/WEB USERS:
+If you use the new version of Plex/Web (http://plex.tv/web/app), you can copy and paste the url address of a new feed you would like to add into the search box at the top of the screen to add the channel. You must be within the directory for the type of show you would like to add. For example if you opened of the video directory which shows all of your currently installed video feeds, then you can paste the url of the new feed you would like to add in the search box of that page. A dialog box will appear and tell you that the rss feed has been added.
+The plex/web interface will only update once a day unless you clear your cache. So changes made in the plex/web interface will be seen immediately in other clients but will take a day to show up in the plex/web interface unless the cache is cleared for your browser.
+
+IMPORTANT NOTE FOR ADVANCED USERS:
+THIS SHOULD ONLY BE ATTEMPTED BY THOSE WITH AN ADVANCED KNOWLEDGE OF JSON DATA STRUCTURES AND PLEX CHANNEL DESIGN.
+For those who may decide to edit the json data file attached to this channel to add RSS feeds, it pulls the original list of feeds from that JSON data file but then saves that data to a local dictionary file and does not access or update the json data file afterwards. So if you add data for the show to the JSON file, you would then need to click the Reset Shows button in the Channel Tools section for those changes to show up in the channel. And you would lose any changes you made using the add or delete button in the channel. 
+
+I cannot provide any support for any errors or problems you may encounter by using this method. The numbering system must stay intact, so never completely delete an entry from the json file, just remove or add the data in the specific entry fields you want to add or delete. And even one comma or quote mark out of place, could break the channel. Therefore if you choose this method and encounter any issues, since even a clean install will not alter the local dictionary, I cannot provide any support.
+
+IMMEDIATELY CHOOSING THE "RESET RSS FEEDS" FROM THE CHANNEL TOOLS AFTER A CLEAN INSTALL MAY REPAIR THE DATA STRUCTURE, BUT THERE ARE NO GUARANTEES THAT THIS METHOD WILL WORK.
