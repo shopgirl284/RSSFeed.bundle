@@ -26,6 +26,10 @@ ROKU USERS MUST ACCESS THE CHANNEL WITH THE PLEX CHANNEL VERSION 2.6.5 (CURRENTL
 
 A LINK TO THE REMOKU WEB BASED REMOTE CONTROL AT http://remoku.tv/ MAKES INPUT OF URLS VERY EASY. LINK IT TO THE ADDRESS OF YOUR ROKU MACHINE. MORE INFO IS AVAILABLE AT http://forums.roku.c...p?f=28&t=46852. ONCE YOU HAVE REMOKU RUNNING IN YOUR BROWSER, YOU CAN THEN CAN COPY AND PASTE THE URL ADDRESS INTO THE REMOKU DIRECTLY INTO THE ADD CHANNEL USER ENTRY.
 
+IMPORTANT NOTE FOR PLEX/WEB USERS:
+If you use the new version of Plex/Web (http://plex.tv/web/app), you can copy and paste the url address of a new feed you would like to add into the search box at the top of the screen to add the channel. You must be within the directory for the type of show you would like to add. For example if you opened of the video directory which shows all of your currently installed video feeds, then you can paste the url of the new feed you would like to add in the search box of that page. A dialog box will appear and tell you that the rss feed has been added.
+The plex/web interface will only update once a day unless you clear your cache. So changes made in the plex/web interface will be seen immediately in other clients but will take a day to show up in the plex/web interface unless the cache is cleared for your browser.
+
 IMPORTANT NOTE FOR ADVANCED USERS:
 THIS SHOULD ONLY BE ATTEMPTED BY THOSE WITH AN ADVANCED KNOWLEDGE OF JSON DATA STRUCTURES AND PLEX CHANNEL DESIGN.
 For those who may decide to edit the json data file attached to this channel to add RSS feeds, it pulls the original list of feeds from that JSON data file but then saves that data to a local dictionary file and does not access or update the json data file afterwards. So if you add data for the show to the JSON file, you would then need to click the Reset Shows button in the Channel Tools section for those changes to show up in the channel. And you would lose any changes you made using the add or delete button in the channel. 
