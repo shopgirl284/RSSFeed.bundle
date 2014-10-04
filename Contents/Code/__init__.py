@@ -169,7 +169,8 @@ def ShowRSS(title, url, show_type, thumb):
         medias = item.xpath('.//media:content', namespaces=NAMESPACES2)
         bitrate = 0
         for media in medias:
-          new_bitrate = int(media.get('bitrate', default=0))
+          try: new_bitrate = int(media.get('bitrate', default=0))
+          except: new_bitrate = 0
           if new_bitrate > bitrate:
             bitrate = new_bitrate
             media_url = media.get('url')
