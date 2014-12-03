@@ -183,9 +183,16 @@ def ShowRSS(title, url, show_type, thumb):
         except:
           Log("no media:content objects found in bitrate check")
           media_url = None
+          media_type = None
     else:
       # If the URL test was positive we do not need a media_url
       media_url = None
+      # We do need to try to get a media type though so it will process it with the right player
+      # This should not be necessary it added in the right group but just a extra level of security
+      try: media_type = item.xpath('.//enclosure/@type')[0]
+      except:
+        try: media_type = item.xpath('.//media:content/@type', namespaces=NAMESPACES2)[0]
+        except: media_type = None
 
     #Log("the value of media url is %s" %media_url)
     # With Archive.org there is an issue where it is using https instead of http sometimes for the media urls
@@ -238,8 +245,12 @@ def ShowRSS(title, url, show_type, thumb):
         # The date that go to the CreateObject() have to be processed separately so only process those with a URL service here
         if date:
           date = Datetime.ParseDate(date)
-        if show_type == 'video':
-          oc.add(VideoClipObject(
+        # Changed to reflect webisodes version should only apply if a video in added to the audio section by mistake
+        if show_type == 'audio' or (media_type and 'audio' in media_type):
+          # I was told it was safest to use an album object and not a track object here since not sure what we may encounter
+          # But was getting errors with an AlbumObject so using TrackObject instead
+          # NEED TO TEST THIS WITH AN AUDIO SITE THAT HAS A URL SERVICE
+          oc.add(TrackObject(
             url = link, 
             title = title, 
             summary = summary, 
@@ -247,10 +258,7 @@ def ShowRSS(title, url, show_type, thumb):
             originally_available_at = date
           ))
         else:
-          # I was told it was safest to use an album object and not a track object here since not sure what we may encounter
-          # But was getting errors with an AlbumObject so using TrackObject instead
-          # NEED TO TEST THIS WITH AN AUDIO SITE THAT HAS A URL SERVICE
-          oc.add(TrackObject(
+          oc.add(VideoClipObject(
             url = link, 
             title = title, 
             summary = summary, 
