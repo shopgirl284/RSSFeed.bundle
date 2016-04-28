@@ -1,8 +1,8 @@
-
 TITLE    = 'RSS Feeds'
 PREFIX   = '/video/rssfeeds'
 ART      = 'art-default.jpg'
 ICON     = 'icon-default.png'
+
 SHOW_DATA = 'rssdata.json'
 NAMESPACES = {'feedburner': 'http://rssnamespace.org/feedburner/ext/1.0'}
 NAMESPACES2 = {'media': 'http://search.yahoo.com/mrss/'}
@@ -22,13 +22,9 @@ def Start():
   
   HTTP.CacheTime = CACHE_1HOUR 
 
-  #This Checks to see if there is a list of feeds
+  #This Checks to see if there is a list of shows
   if Dict['MyShows'] == None:
-  # HERE WE PULL IN THE JSON DATA IN TO POPULATE THIS DICT THE FIRST TIME THEY LOAD THE CHANNEL
-  # THIS ALSO ALLOWS USERS TO REVERT BACK TO A DEFAULT LIST IF THERE ARE ISSUES
-  # ALSO NEED THE 50 ENTRIES IN THE JSON DATA TO HOLD ADDITIONS SINCE FORMAT DOES NOT TRULY ALLOW ADDTION OF ENTRIES
-    Dict["MyShows"] = LoadData()
-
+    Dict["MyShows"] = []
   else:
     Log(Dict['MyShows'])
 
@@ -40,22 +36,24 @@ def MainMenu():
 
   oc = ObjectContainer()
   
-  json_data = Resource.Load(SHOW_DATA)
-  Dict["shows"] = JSON.ObjectFromString(json_data)
-  
   oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Video Feeds", show_type='video'), title="RSS Video Feeds"))
   oc.add(DirectoryObject(key=Callback(ProduceRss, title="RSS Audio Feeds", show_type='audio'), title="RSS Audio Feeds"))
   oc.add(DirectoryObject(key=Callback(SectionTools, title="Channel Tools"), title="Channel Tools", thumb=R('icon-feed.png'), summary="Click here to for reset options, extras and special instructions"))
 
   return oc
 #######################################################################################################################
-# This is the section for system settings
+# This is the section for instructions and resetting Dict[] files
 @route(PREFIX + '/sectiontools')
 def SectionTools (title):
 
   oc = ObjectContainer(title2=title)
-  oc.add(DirectoryObject(key=Callback(RokuUsers, title="Special Instructions for Roku Users"), title="Special Instructions for Roku Users", summary="Click here to see special instructions necessary for Roku Users to add feeds to this channel"))
-  oc.add(DirectoryObject(key=Callback(ResetShows, title="Reset RSS Feeds"), title="Reset RSS Feeds", thumb=R('feed-back.png'), summary="Click here to reset your RSS feed list back to the original default list from the JSON data file"))
+  if Client.Platform == 'Roku':
+    oc.add(DirectoryObject(key=Callback(RokuUsers, title="Special Instructions for Roku Users"), title="Special Instructions for Roku Users", thumb=R(ICON), summary="Click here to see special instructions necessary for Roku Users to add shows to this channel"))
+  if Client.Platform in ('Chrome', 'Firefox', 'Edge', 'Safari', 'Internet Explorer'):
+    oc.add(DirectoryObject(key=Callback(PlexWebUsers, title="Special Instructions for Plex Web Users"), title="Special Instructions for Plex Web Users", thumb=R(ICON), summary="Click here to see special instructions for Plex Web Users to add shows to this channel"))
+  oc.add(DirectoryObject(key=Callback(ResetShows, title="Clear All Shows"), title="Clear All Shows", thumb=R(ICON), summary="Click here to remove all shows from this channel"))
+  oc.add(DirectoryObject(key=Callback(LoadData), title="Replace Show List with JSON", thumb=R(ICON), summary="Click here to replace your show list with those in the data.json file"))
+  oc.add(DirectoryObject(key=Callback(AddData), title="Add Shows from the JSON to my Current List", thumb=R(ICON), summary="Click here to add the data.json file to your existing list"))
 
   return oc
 
@@ -63,48 +61,45 @@ def SectionTools (title):
 # this is special instructions for Roku users
 @route(PREFIX + '/rokuusers')
 def RokuUsers (title):
-  return ObjectContainer(header="Special Instructions for Roku Users", message="Adding the URL for feeds is made much easier with the Remoku (www.remoku.tv) WARNING: DO NOT DIRECTLY TYPE OR PASTE THE URL IN THE ADD FEEDS SECTION USING ROKU PLEX CHANNELS 2.6.4. THAT VERSION USES A SEARCH INSTEAD OF ENTRY SCREEN AND EVERY LETTER OF THE URL YOU ENTER WILL PRODUCE IN AN INVALID FEED ICON.")
+  return ObjectContainer(header="Special Instructions for Roku Users", message="Remoku (www.remoku.tv) makes it easy to add new shows by cutting and pasting URLs from your browser.")
+
+########################################################################################################################
+# this is special instructions for Plex Web users
+@route(PREFIX + '/plexwebusers')
+def PlexWebUsers (title):
+  return ObjectContainer(header="Special Instructions for Plex Web Users", message="Plex Web users can add new shows by pasting or typing the URLs in the Search Box at the top of the page while in the show section for that show type. A pop-up message will confirm if your new show has been added. New shows may not be visible for 24 hours, based on your browser cache settings.")
 
 #############################################################################################################################
 # The FUNCTION below can be used to reload the original data.json file if errors occur and you need to reset the program
 @route(PREFIX + '/resetshows')
 def ResetShows(title):
-  Dict["MyShows"] = LoadData()
-  return ObjectContainer(header="Reset", message='The feeds have been set back to the default list of feeds available in the JSON file.')
+  Dict["MyShows"] = []
+  return ObjectContainer(header="Cleared", message='All shows have been removed from this channel')
 
 ###################################################################################################
 # This Menu produces a list of feeds for each type of feed.
 @route(PREFIX + '/producerss')
 def ProduceRss(title, show_type):
-  json_data = Resource.Load(SHOW_DATA)
-  Dict["shows"] = JSON.ObjectFromString(json_data)
 
   oc = ObjectContainer(title2=title)
-  i=1
   shows = Dict["MyShows"]
   for show in shows:
-    if show[i]['type'] == show_type:
-      url = show[i]["url"]
-      thumb = show[i]["thumb"]
-      i+=1
+    if show['type'] == show_type:
+      url = show["url"]
+      thumb = show["thumb"]
       try:
         rss_page = XML.ElementFromURL(url)
         title = rss_page.xpath("//channel/title//text()")[0]
-        # sometimes the description is blank and it gives an error, so we added this as a try
-        try:
-          description = rss_page.xpath("//channel/description//text()")[0]
-        except:
-          description = ' '
-        if not thumb:
-          try:
-            thumb = rss_page.xpath("//channel/image/url//text()")[0]
-          except:
-            thumb = R(ICON)
-        oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type=show_type, thumb=thumb), title=title, summary=description, thumb=thumb))
       except:
-        oc.add(DirectoryObject(key=Callback(URLError, url=url), title="Invalid or Incompatible URL", thumb=R('no-feed.png'), summary="The URL was either entered incorrectly or is incompatible with this channel."))
-    else:
-      i+=1
+        oc.add(DirectoryObject(key=Callback(URLError, url=url, show_type=show_type), title="Invalid or Incompatible URL", thumb=R('no-feed.png'), summary="The URL was either entered incorrectly or is incompatible with this channel."))
+        continue
+      # sometimes the description is blank and it gives an error, so we added this as a try
+      try: description = rss_page.xpath("//channel/description//text()")[0]
+      except: description = ''
+      if not thumb:
+        try: thumb = rss_page.xpath("//channel/image/url//text()")[0]
+        except: thumb = R(ICON)
+      oc.add(DirectoryObject(key=Callback(ShowRSS, title=title, url=url, show_type=show_type, thumb=thumb), title=title, summary=description, thumb=thumb))
 
   oc.objects.sort(key = lambda obj: obj.title)
 
@@ -126,15 +121,11 @@ def ShowRSS(title, url, show_type, thumb):
   feed_title = title
   xml = XML.ElementFromURL(url)
   for item in xml.xpath('//item'):
-  
     # All Items must have a title
     title = item.xpath('./title//text()')[0]
-    
     # Try to pull the link for the item
-    try:
-      link = item.xpath('./link//text()')[0]
-    except:
-      link = None
+    try: link = item.xpath('./link//text()')[0]
+    except: link = None
     # The link is not needed since these have a media url, but there may be a feedburner feed that has a Plex URL service
     try:
       new_url = item.xpath('./feedburner:origLink//text()', namespaces=NAMESPACES)[0]
@@ -208,24 +199,18 @@ def ShowRSS(title, url, show_type, thumb):
       except Exception as e:
         Log("Found theplatform.com link, but couldn't resolve stream: " + str(e))
         media_url = None
-
     
     # If there in not a url service or media_url produced No URL service object and go to next entry
     if url_test == 'false' and not media_url:
       Log('The url test failed and returned a value of %s' %url_test)
       oc.add(DirectoryObject(key=Callback(URLNoService, title=title),title="No URL Service or Media Files for Video", thumb=R('no-feed.png'), summary='There is not a Plex URL service or link to media files for %s.' %title))
-      continue
     
     else: 
-    # Collect all other optionnal data for item
-      try:
-        date = item.xpath('./pubDate//text()')[0]
-      except:
-        date = None
-      try:
-        item_thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
-      except:
-        item_thumb = None
+    # Collect all other optional data for item
+      try: date = item.xpath('./pubDate//text()')[0]
+      except: date = None
+      try: item_thumb = item.xpath('./media:thumbnail//@url', namespaces=NAMESPACES2)[0]
+      except: item_thumb = None
       try:
         # The description actually contains pubdate, link with thumb and description so we need to break it up
         epDesc = item.xpath('./description//text()')[0]
@@ -268,11 +253,12 @@ def ShowRSS(title, url, show_type, thumb):
         oc.objects.sort(key = lambda obj: obj.originally_available_at, reverse=True)
       else:
         # Send those that have a media_url to the CreateObject function to build the media objects
-        oc.add(CreateObject(url=media_url, media_type=media_type, title=title, summary = summary, originally_available_at = date, thumb=thumb))
+        oc.add(CreateObject(url=media_url, media_type=media_type, title=title, summary=summary, originally_available_at=date, thumb=thumb))
 
   # Additional directories for deleting a show and adding images for a show
+  # Moved to top since some feeds can be very long
   oc.add(DirectoryObject(key=Callback(DeleteShow, url=url, title=feed_title), title="Delete %s" %feed_title, thumb=R('delete.png'), summary="Click here to delete this feed"))
-  oc.add(InputDirectoryObject(key=Callback(AddImage, title=feed_title, show_type='video', url=url), title="Add Image For %s" %feed_title, thumb=R('img-add.png'), summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
+  oc.add(InputDirectoryObject(key=Callback(AddImage, title=feed_title, url=url), title="Add Image For %s" %feed_title, thumb=R('img-add.png'), summary="Click here to add an image url for this feed", prompt="Enter the full URL (including http://) for the image you would like displayed for this RSS Feed"))
 
   if len(oc) < 1:
     Log ('still no value for objects')
@@ -339,19 +325,7 @@ def CreateObject(url, media_type, title, originally_available_at, thumb, summary
   else:
     return new_object
 #############################################################################################################################
-# this checks to see if the RSS feed is a YouTube playlist. Currently this plugin does not work with YouTube Playlist
-# THIS IS NOT BEING USED
-@route(PREFIX + '/checkplaylist')
-def CheckPlaylist(url):
-  show_rss=''
-  if url.find('playlist')  > -1:
-    show_rss = 'play'
-  else:
-    show_rss = 'good'
-  return show_rss
-
-#############################################################################################################################
-# The description actually contains pubdate, link with thumb and description so we need to break it up
+# This function breaks content into pubdate, link with thumb and description 
 @route(PREFIX + '/summaryfind')
 def SummaryFind(epDesc):
   
@@ -367,7 +341,7 @@ def SummaryFind(epDesc):
   return (summary, item_thumb)
 
 ############################################################################################################################
-# This is to test if there is a Plex URL service for  given url.  
+# This is a function to test if there is a Plex URL service for  given url. 
 #       if URLTest(url) == "true":
 @route(PREFIX + '/urltest')
 def URLTest(url):
@@ -378,13 +352,15 @@ def URLTest(url):
   return url_good
 
 ############################################################################################################################
-# This keeps a section of the feed from giving an error for the entire section if one of the URLs does not have a service or attached media
+# This function is to show a directory for videos that do not have a URL service or a media stream URL value. 
+# This way a directory entry for each incompatible URLs is shown, so any bad entries will still be listed with an explanation
 @route(PREFIX + '/urlnoservice')
 def URLNoService(title):
   return ObjectContainer(header="Error", message='There is no Plex URL service or media file link for the %s feed entry. A Plex URL service or a link to media files in the feed entry is required for this channel to create playable media. If all entries for this feed give this error, you can use the Delete button shown at the end of the feed entry listings to remove this feed' %title)
 
 ############################################################################################################################
-# This function creates an error message for feed entries that have an usupported media type and keeps a section of feeds from giving an error for the entire list of entries
+# This function creates an error message for RSS Feed entries that have an unsupported media type and keeps a section of feeds
+# from giving an error for the entire list of entries
 @route(PREFIX + '/urlunsupported')
 def URLUnsupported(url, title):
   oc = ObjectContainer()
@@ -394,47 +370,30 @@ def URLUnsupported(url, title):
   return oc
 
 ############################################################################################################################
-# This function creates a directory for incorectly entered urls and keeps a section of feeds from giving an error if one url is incorrectly entered
-# Would like to allow for reentry of a bad url but for now, just allows for deletion. 
+# This function creates a directory entry when a show URL from the Dict['MyShows'] fails an XML/HTML.ElementFromURL pull
+# to show users the error instead of skipping them. And in this function we can give options to fix that show URL 
 @route(PREFIX + '/urlerror')
-def URLError(url):
+def URLError(url, show_type):
 
   oc = ObjectContainer()
-  
-  oc.add(DirectoryObject(key=Callback(EditShow, url=url), title="Edit Feed"))
-
-  oc.add(DirectoryObject(key=Callback(DeleteShow, title="Delete Feed", url=url), title="Delete Feed", thumb=R('delete.png'), summary="Delete this URL from your list of feeds"))
-
+  oc.add(DirectoryObject(key=Callback(DeleteShow, title="Delete Feed", url=url), title="Delete Feed", thumb=R('delete.png'), summary="Delete this URL from your list of feeds. You can try again by choosing the Add Show option"))
   return oc
 
-#############################################################################################################################
-# Here we could possible and tell them to delete the url and try again
-@route(PREFIX + '/editshow')
-def EditShow(url):
-  return ObjectContainer(header="Error", message='Unable to edit feed urls at this time. Please delete the url and try again')
-
 ############################################################################################################################
-# This is a function to delete a feed from the json data file
-# cannot just delete the entry or it will mess up the numbering and cause errors in the program.
-# Instead we will make the entry blank and then check for reuse in the add function
+# This is a function to delete a feed from the Dict['MyShows']
 @route(PREFIX + '/deleteshow')
 def DeleteShow(url, title):
-  i=1
+
   shows = Dict["MyShows"]
   for show in shows:
-    if show[i]['url'] == url:
-      show[i] = {"type":"", "url":"", "thumb":""}
-      # once we find the feed to delete we need to break out of the for loop
+    if show['url'] == url:
+      shows.remove(show)
       break
-    else:
-      i += 1
-  # Then send a message
-  return ObjectContainer(header=L('Deleted'), message=L('Your RSS feed has been deleted from the channel'))
+  #Log(Dict['MyShows'])
+  return ObjectContainer(header=L('Deleted'), message=L('Your show has been deleted from the channel'))
 
 #############################################################################################################################
-# This is a function to add a feed to the json data file.  Wanted to make a true add but running into errors based on 
-# the structure of my dictionary, so we created 50 items and just taking the first empty feed and filling it with
-# the feed info
+# This is a function to add a feed to to Dict['MyShows'].  
 @route(PREFIX + '/addshow')
 def AddShow(show_type, query, url=''):
 
@@ -447,52 +406,64 @@ def AddShow(show_type, query, url=''):
     url = url.replace('https://', 'http://')
   else:
     pass
-  i=1
+  list_item = {}
+  list_item[unicode('type')] = unicode(show_type)
+  list_item[unicode('url')] = unicode(url)
+  list_item[unicode('thumb')] = unicode('')
+  Dict["MyShows"].append(list_item)
 
-  shows = Dict["MyShows"]
-  for show in shows:
-    if show[i]['url'] == "":
-      show[i]['type'] = show_type
-      show[i]['url'] = url
-      break
-    else:
-      i += 1
-      if i > len(Dict['MyShows']):
-        return ObjectContainer(header=L('Error'), message=L('Unable to add new feed. You have added the maximum amount of 50 feeds. Please delete a feed and try again'))
-      else:
-        pass
-
-  return ObjectContainer(header=L('Added'), message=L('Your RSS feed has been added to the channel'))
+  #Log(Dict['MyShows'])
+  return ObjectContainer(header=L('Added'), message=L('Your feed has been added to the channel'))
 
 #############################################################################################################################
 # This is a function to add an url for an image to a feed.  
 @route(PREFIX + '/addimage')
-def AddImage(show_type, title, query, url=''):
+def AddImage(query, url, title=''):
 
   thumb = query
   # Checking to make sure http on the front
   if thumb.startswith('www'):
-    thumb = http + '//' + thumb
+    thumb = 'http://' + thumb
   else:
     pass
-  i=1
-
+    
   shows = Dict["MyShows"]
   for show in shows:
-    if show[i]['url'] == url:
-      show[i]['thumb'] = thumb
+    if show['url'] == url:
+      show['thumb'] = thumb
       break
     else:
-      i += 1
-      if i > len(Dict['MyShows']):
-        return ObjectContainer(header=L('Error'), message=L('Unable to add image for %s.' %title))
-      else:
-        pass
+      pass
 
-  return ObjectContainer(header=L('Added'), message=L('Your RSS feed image has been added to %s' %title))
+  return ObjectContainer(header=L('Added'), message=L('Your image has been added for the show'))
 #############################################################################################################################
-# This function loads the json data file
+# This function loads the json data file and replaces the existing Dict["MyShows"] 
 @route(PREFIX + '/loaddata')
 def LoadData():
+  Dict["MyShows"] = []
   json_data = Resource.Load(SHOW_DATA)
-  return JSON.ObjectFromString(json_data)
+  Dict["MyShows"] = JSON.ObjectFromString(json_data)
+  #Log(Dict['MyShows'])
+  return ObjectContainer(header=L('Updated'), message=L('Your show data has been updated from the json data file in the Resources folder'))
+#############################################################################################################################
+# This function adds the json data file to the existing Dict["MyShows"] (can also use x.extend(y))
+# CANNOT PREVENT DUPLICATES 
+@route(PREFIX + '/adddata')
+def AddData():
+  shows = Dict["MyShows"]
+  json_data = Resource.Load(SHOW_DATA)
+  json_shows = JSON.ObjectFromString(json_data)
+  Dict["MyShows"] = shows + json_shows
+  return ObjectContainer(header=L('Updated'), message=L('Your show data has been updated to inlude the json data in the Resources folder'))
+#############################################################################################################################
+# this checks to see if the RSS feed is a YouTube playlist. Currently this plugin does not work with YouTube Playlist
+# THIS IS NOT BEING USED
+@route(PREFIX + '/checkplaylist')
+def CheckPlaylist(url):
+  show_rss=''
+  if url.find('playlist')  > -1:
+    show_rss = 'play'
+  else:
+    show_rss = 'good'
+  return show_rss
+
