@@ -406,11 +406,14 @@ def AddShow(show_type, query, url=''):
     url = url.replace('https://', 'http://')
   else:
     pass
+  # create new item as json
+  shows = Dict["MyShows"]
   list_item = {}
   list_item[unicode('type')] = unicode(show_type)
   list_item[unicode('url')] = unicode(url)
   list_item[unicode('thumb')] = unicode('')
-  Dict["MyShows"].append(list_item)
+  shows.append(list_item)
+  Dict["MyShows"] = shows
 
   #Log(Dict['MyShows'])
   return ObjectContainer(header=L('Added'), message=L('Your feed has been added to the channel'))
